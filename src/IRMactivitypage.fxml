@@ -111,7 +111,7 @@
                <children>
                   <TableView fx:id="transactionHistory" layoutY="-3.0" prefHeight="558.0" prefWidth="414.0" style="-fx-background-color: white;">
                     <columns>
-                      <TableColumn fx:id="bookingIdColumn" text="Booking_ID" />
+                      <TableColumn fx:id="transactionIdColumn" prefWidth="90.0" text="Transaction_ID" />
                       <TableColumn fx:id="customeridColumn" prefWidth="100.0" text="Customer_ID" />
                         <TableColumn fx:id="rideridColumn" prefWidth="100.0" text="Rider_ID" />
                         <TableColumn fx:id="transactiondateColumn" prefWidth="100.0" text="TransactionDate" />

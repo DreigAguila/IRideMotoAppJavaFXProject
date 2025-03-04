@@ -37,7 +37,7 @@ public class IRMactivityController implements Initializable{
     private TableView<Transaction> transactionHistory;
 
     @FXML
-    private TableColumn<Transaction, String> bookingIdColumn;
+    private TableColumn<Transaction, String> transactionIdColumn;
 
     @FXML
     private TableColumn<Transaction, String> customeridColumn;
@@ -68,7 +68,7 @@ public class IRMactivityController implements Initializable{
     }
 
     private void initializeCol() {
-        bookingIdColumn.setCellValueFactory(new PropertyValueFactory<>("bookingId"));
+        transactionIdColumn.setCellValueFactory(new PropertyValueFactory<>("transactionId"));
         customeridColumn.setCellValueFactory(new PropertyValueFactory<>("customerId"));
         rideridColumn.setCellValueFactory(new PropertyValueFactory<>("riderId"));
         transactiondateColumn.setCellValueFactory(new PropertyValueFactory<>("transactionDate"));

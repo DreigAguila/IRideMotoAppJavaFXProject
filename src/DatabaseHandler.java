@@ -56,7 +56,7 @@ public class DatabaseHandler {
 
     public static boolean validateLogin(String username, String password) {
         getInstance();
-        String query = "SELECT * FROM users WHERE UserName = ? AND Password = ?";
+        String query = "SELECT * FROM users WHERE BINARY UserName = ? AND BINARY Password = ?";
     
         try (Connection conn = getDBConnection();
              PreparedStatement stmt = conn.prepareStatement(query)) {
@@ -314,13 +314,13 @@ public class DatabaseHandler {
         connection = DatabaseHandler.getDBConnection();
     
         String query = "SELECT C.Customer_id, C.CustomerFullName, C.Password, " +
-                        "L.City, L.Zip, L.Street, " +
-                        "CT.ContactNum, CT.Email " +
-                        "FROM CustomerTable C " +
-                        "INNER JOIN LocationTable L ON C.Customer_id = L.Customer_id " +
-                        "INNER JOIN ContactTable CT ON C.Customer_id = CT.Customer_id " +
-                        "WHERE CT.ContactNum = ? AND C.Password = ?";
-    
+               "L.City, L.Zip, L.Street, " +
+               "CT.ContactNum, CT.Email " +
+               "FROM CustomerTable C " +
+               "INNER JOIN LocationTable L ON C.Customer_id = L.Customer_id " +
+               "INNER JOIN ContactTable CT ON C.Customer_id = CT.Customer_id " +
+               "WHERE BINARY CT.ContactNum = ? AND BINARY C.Password = ?";
+            
         try {
             pstatement = connection.prepareStatement(query);
             pstatement.setString(1, contactNumber);
@@ -357,7 +357,7 @@ public class DatabaseHandler {
                    "FROM CustomerTable C " +
                    "INNER JOIN LocationTable L ON C.Customer_id = L.Customer_id " +
                    "INNER JOIN ContactTable CT ON C.Customer_id = CT.Customer_id " +
-                   "WHERE CT.Email = ? AND C.Password = ?";
+                   "WHERE BINARY CT.Email = ? AND C.Password = ?";
 
 
                    try {
