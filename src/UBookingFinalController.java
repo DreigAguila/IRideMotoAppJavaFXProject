@@ -57,6 +57,9 @@ public class UBookingFinalController {
     private Button returntobookingButton;
 
     @FXML
+    private Label rideridInfo;
+
+    @FXML
     private Label riderNameInfo;
 
     @FXML
@@ -81,39 +84,19 @@ public class UBookingFinalController {
     private Label estimatedTimeLabel;
 
     @FXML
-    private Label rideridInfo;
-
-    @FXML
     private Label pickupLocationLabel;
 
     @FXML
     private Label dropOffLocationLabel;
 
-    @FXML
-    private TableView<Rider> randomRiderInfo;
+ 
 
-    @FXML
-    private TableColumn<Rider, String> riderIdColumn;
-
-    @FXML
-    private TableColumn<Rider, String> riderLocation;
-
-    @FXML
-    private TableColumn<Rider, String> riderNameColumn;
-
-    @FXML
-    private TableColumn<Rider, String> riderPhoneColumn;
-
-    @FXML
-    private TableColumn<Rider, String> riderPlateColumn;
-
-    @FXML
-    private TableColumn<Rider, String> riderVehicleColumn;
+    private String paymentId;
+    private String currentRiderId;
     
     private Stage stage;
     private Scene scene;
     private Parent root;
-
 
     private ObservableList<Rider> riderList = FXCollections.observableArrayList(); 
     private static final String url = "jdbc:mysql://localhost:3306/moveit"; // Replace with your actual database URL
@@ -129,14 +112,6 @@ public class UBookingFinalController {
         // Set the options for payment type (this seems unrelated to the rider data)
         selectPaymentCBox.setItems(FXCollections.observableArrayList("Gcash", "Card", "Cash"));
 
-        // Bind columns to appropriate properties of Rider class
-        riderIdColumn.setCellValueFactory(new PropertyValueFactory<>("riderid"));
-        riderNameColumn.setCellValueFactory(new PropertyValueFactory<>("riderfullname"));
-        riderPhoneColumn.setCellValueFactory(new PropertyValueFactory<>("ridercontactnumber"));
-        riderPlateColumn.setCellValueFactory(new PropertyValueFactory<>("platenumber"));
-        riderLocation.setCellValueFactory(new PropertyValueFactory<>("city"));
-        riderVehicleColumn.setCellValueFactory(new PropertyValueFactory<>("vehicle"));
-
         // Load random rider data
         loadRandomRiderData();
 
@@ -145,58 +120,36 @@ public class UBookingFinalController {
     }
 
     private void loadRandomRiderData() {
-        // Query to fetch random rider data from the database
-        String query = "SELECT R.Rider_id, R.RiderFullname, R.RiderContactNo, RL.Zip, RL.City, RL.Street, " +
-                "V.PlateNumber, V.Vehicle, COALESCE(RR.Rating, 0) AS Rating, COALESCE(RR.ShipOnTime, 'N/A') AS ShipOnTime " +
-                "FROM RiderTable R " +
-                "LEFT JOIN RiderLocationTable RL ON R.Rider_id = RL.Rider_id " +
-                "LEFT JOIN VehicleTable V ON R.Rider_id = V.Rider_id " +
-                "LEFT JOIN RiderRatingTable RR ON R.Rider_id = RR.Rider_id " +
-                "ORDER BY RAND() LIMIT 1";
+        Rider rider = DatabaseHandler.getRandomRider();
+    if (rider != null) {
+        // Store the rider ID
+        this.currentRiderId = rider.getRiderid();
+        // Update labels with rider information
+        rideridInfo.setText(rider.getRiderid());
+        riderNameInfo.setText(rider.getRiderfullname());
+        riderLocationInfo.setText(rider.getCity());
+        riderPhoneInfo.setText(rider.getRidercontactnumber());
+        riderPlateInfo.setText(rider.getPlatenumber());
+        riderVehicleInfo.setText(rider.getVehicle());
 
-        try (Connection conn = DriverManager.getConnection(url, user, password);
-             PreparedStatement stmt = conn.prepareStatement(query);
-             ResultSet rs = stmt.executeQuery()) {
-
-            if (rs.next()) {
-                // Get the rider data from the result set
-                String riderId = rs.getString("Rider_id");
-                String riderFullname = rs.getString("RiderFullname");
-                String riderContactNo = rs.getString("RiderContactNo");
-                String zip = rs.getString("Zip");
-                String city = rs.getString("City");
-                String street = rs.getString("Street");
-                String plateNumber = rs.getString("PlateNumber");
-                String vehicle = rs.getString("Vehicle");
-                int rating = rs.getInt("Rating");
-                String shipOnTime = rs.getString("ShipOnTime");
-
-                // Create a Rider object with the retrieved data
-                Rider rider = new Rider(riderId, riderFullname, riderContactNo, zip, city, street, plateNumber, vehicle, rating, shipOnTime);
-
-                // Add the rider to the observable list
-                riderList.clear();
-                riderList.add(rider);
-
-                // Set the items for the TableView to display
-                randomRiderInfo.setItems(riderList);
-
-                // Pre-select the rider in the table (optional)
-                randomRiderInfo.getSelectionModel().select(rider);
-
-            } else {
-                // Show alert if no rider data was found
-                showAlert(Alert.AlertType.INFORMATION, "No Rider Found", "No rider found.");
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-            showAlert(Alert.AlertType.ERROR, "Error", "An error occurred while loading rider data.");
-        }
+        System.out.println("✅ Random Rider assigned: " + currentRiderId);
+        System.out.println("✅ Rider details updated in labels");
+    } else {
+        showAlert(Alert.AlertType.ERROR, "Error", "No riders found in the database.");
     }
+}
 
     @FXML
-    void handleBackButton(ActionEvent event) throws IOException {
+void handleBackButton(ActionEvent event) throws IOException {
+    // Show confirmation alert
+    Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+    alert.setTitle("Confirm Navigation");
+    alert.setHeaderText("You are about to leave this page");
+    alert.setContentText("If you go back, you will lose your current rider assignment. Do you want to continue?");
+
+    // Wait for user response
+    if (alert.showAndWait().get().getButtonData().isDefaultButton()) {
+        // User clicked OK, proceed with navigation
         FXMLLoader loader = new FXMLLoader(getClass().getResource("locationPage.fxml"));
         Parent root = loader.load();
 
@@ -205,6 +158,8 @@ public class UBookingFinalController {
         stage.setScene(scene);
         stage.show();
     }
+    // If user clicked Cancel, nothing happens and they stay on current page
+}
 
     public void setPickupLocation(String pickupLocation) {
         pickupLocationLabel.setText(pickupLocation);
@@ -221,41 +176,52 @@ public class UBookingFinalController {
 
     @FXML
     void calculateETA(ActionEvent event) {
-        String origin = pickupLocationLabel.getText(); // Use actual origin
-        String destination = dropOffLocationLabel.getText(); // Use actual destination
+    String origin = pickupLocationLabel.getText(); // Use actual origin
+    String destination = dropOffLocationLabel.getText(); // Use actual destination
 
-        String query = "SELECT distance_km FROM fare_matrix WHERE origin = ? AND destination = ?";
+    String query = "SELECT distance_km FROM fare_matrix WHERE origin = ? AND destination = ?";
 
-        try (Connection conn = DatabaseHandler.getDBConnection();
-             PreparedStatement stmt = conn.prepareStatement(query)) {
+    try (Connection conn = DatabaseHandler.getDBConnection();
+         PreparedStatement stmt = conn.prepareStatement(query)) {
 
-            stmt.setString(1, origin);
-            stmt.setString(2, destination);
-            ResultSet rs = stmt.executeQuery();
+        stmt.setString(1, origin);
+        stmt.setString(2, destination);
+        ResultSet rs = stmt.executeQuery();
 
-            if (rs.next()) {
-                double distanceKm = rs.getDouble("distance_km");
-                double etaMinutes = distanceKm * 1.5;
+        if (rs.next()) {
+            double distanceKm = rs.getDouble("distance_km");
+            double etaMinutes = distanceKm * 1.5;
 
-                // Parse the time input
-                String timeInput = enterTimeTextfield.getText().trim();
-                DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
-                try {
-                    LocalTime time = LocalTime.parse(timeInput, timeFormatter);
-                    LocalTime etaTime = time.plusMinutes((long) etaMinutes);
-                    estimatedTimeLabel.setText(String.format("ETA: %s (%.2f minutes)", etaTime.format(timeFormatter), etaMinutes));
-                } catch (DateTimeParseException e) {
-                    showAlert(Alert.AlertType.ERROR, "Error", "Invalid time format. Please use the format 'h:mm a' (e.g. 1:30 PM/AM ).");
-                }
-            } else {
-                estimatedTimeLabel.setText("No route found.");
+            // Parse the time input
+            String timeInput = enterTimeTextfield.getText().trim();
+            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
+            try {
+                LocalTime time = LocalTime.parse(timeInput, timeFormatter);
+                LocalTime etaTime = time.plusMinutes((long) etaMinutes);
+                String etaTimeFormatted = etaTime.format(timeFormatter);
+                String etaMessage = String.format("ETA: %s (%.2f minutes)", etaTimeFormatted, etaMinutes);
+
+                // Debugging: Print the calculated ETA
+                System.out.println("✔ Calculated ETA: " + etaMessage);
+
+                // Update the estimatedTimeLabel using Platform.runLater()
+                Platform.runLater(() -> {
+                    estimatedTimeLabel.setText(etaMessage);
+                    System.out.println("✔ Estimated Time Label updated to: " + estimatedTimeLabel.getText());
+                });
+
+            } catch (DateTimeParseException e) {
+                showAlert(Alert.AlertType.ERROR, "Error", "Invalid time format. Please use the format 'h:mm a' (e.g. 1:30 PM/AM).");
             }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-            showAlert(Alert.AlertType.ERROR, "Error", "An error occurred while calculating the ETA.");
+        } else {
+            estimatedTimeLabel.setText("No route found.");
         }
+
+    } catch (SQLException e) {
+        e.printStackTrace();
+        showAlert(Alert.AlertType.ERROR, "Error", "An error occurred while calculating the ETA.");
     }
+}
 
     @FXML
     void handleStartRideButton(ActionEvent event) {
@@ -269,169 +235,220 @@ public class UBookingFinalController {
 
     @FXML
     void handleEndRideButton(ActionEvent event) throws IOException {
-        // Debugging: Check if method is called
-        System.out.println("handleEndRideButton called");
+    System.out.println("isPaid value: " + isPaid);
+    if (!isPaid) {
+        showAlert(Alert.AlertType.ERROR, "Payment Required", "Please complete the payment before ending the ride.");
+        return;
+    }
 
-        // Check if payment has been made
-        System.out.println("isPaid value: " + isPaid);
-        if (!isPaid) {
-            showAlert(Alert.AlertType.ERROR, "Payment Required", "Please complete the payment before ending the ride.");
-            return;
-        }
+    String currentCustomerId = UserSession.getInstance().getCustomerId();
+    System.out.println("Customer ID: " + currentCustomerId);
+    if (currentCustomerId == null || currentCustomerId.isEmpty()) {
+        showAlert(Alert.AlertType.ERROR, "Error", "No logged-in customer found.");
+        return;
+    }
 
-        // Get current customer ID from UserSession
-        String currentCustomerId = UserSession.getInstance().getCustomerId();
-        System.out.println("Customer ID: " + currentCustomerId);
-        if (currentCustomerId == null || currentCustomerId.isEmpty()) {
-            showAlert(Alert.AlertType.ERROR, "Error", "No logged-in customer found.");
-            return;
-        }
+    String pickupTimeInput = enterTimeTextfield.getText().trim();
+    System.out.println("Pickup Time Input: " + pickupTimeInput);
+    DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
 
-        // Parse pickup time
-        String pickupTimeInput = enterTimeTextfield.getText().trim();
-        System.out.println("Pickup Time Input: " + pickupTimeInput);
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
+    try {
+        LocalTime pickupTime = LocalTime.parse(pickupTimeInput, timeFormatter);
+        LocalTime endTime = LocalTime.now();
+        LocalDateTime endDateTime = LocalDateTime.of(LocalDate.now(), endTime);
 
-        try {
-            LocalTime pickupTime = LocalTime.parse(pickupTimeInput, timeFormatter);
-            LocalTime endTime = LocalTime.now();
-            LocalDateTime endDateTime = LocalDateTime.of(LocalDate.now(), endTime);
+        System.out.println("Fare display: " + faredisplay.getText());
+        double amountPaid = Double.parseDouble(faredisplay.getText().replace("₱", "").trim());
 
-            // Parse the fare amount
-            System.out.println("Fare display: " + faredisplay.getText());
-            double amountPaid = Double.parseDouble(faredisplay.getText().replace("₱", "").trim());
+        // In handleEndRideButton method, replace the storeBooking section:
+        System.out.println("Storing booking...");
+        String assignedRiderId = DatabaseHandler.storeBooking(currentCustomerId, pickupTime, endDateTime, amountPaid, paymentId);
 
-            // Store booking in the database
-            System.out.println("Storing booking...");
-            DatabaseHandler.storeBooking(currentCustomerId, pickupTime, endDateTime, amountPaid);
-            System.out.println("Booking stored successfully.");
-
+        if (assignedRiderId != null) {
             showAlert(Alert.AlertType.INFORMATION, "Ride Ended", "The ride has ended. Thank you for using our service!");
 
-            // Open ratingyourDriver.fxml in a new window
+            // Open rating window
             FXMLLoader loader = new FXMLLoader(getClass().getResource("ratingyourDriver.fxml"));
             Parent ratingRoot = loader.load();
+
+            // Pass the correct rider ID to the rating controller
+            RatingYourDriverController ratingController = loader.getController();
+            ratingController.setRiderId(currentRiderId); // Use the stored rider ID
+            System.out.println("✅ Passing Rider ID for rating: " + currentRiderId);
+
             Stage ratingStage = new Stage();
             ratingStage.setScene(new Scene(ratingRoot));
             ratingStage.setTitle("Rate Your Driver");
             ratingStage.show();
-
-            // Set an event handler to transition to the homepage when the rating window is closed
-            ratingStage.setOnHidden(e -> {
-                try {
-                    FXMLLoader homeLoader = new FXMLLoader(getClass().getResource("IRMhomepage.fxml"));
-                    Parent homeRoot = homeLoader.load();
-                    stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
-                    scene = new Scene(homeRoot);
-                    stage.setScene(scene);
-                    stage.show();
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
-            });
-
-        } catch (DateTimeParseException e) {
-            showAlert(Alert.AlertType.ERROR, "Error", "Invalid time format. Please use 'h:mm a' (e.g., 1:30 PM/AM).");
-        } catch (NumberFormatException e) {
-            showAlert(Alert.AlertType.ERROR, "Error", "Invalid fare amount. Please enter a valid price.");
+        } else {
+            showAlert(Alert.AlertType.ERROR, "Error", "Failed to complete the booking.");
         }
+
+    } catch (DateTimeParseException e) {
+        showAlert(Alert.AlertType.ERROR, "Error", "Invalid time format. Please use 'h:mm a' (e.g., 1:30 PM/AM).");
+    } catch (NumberFormatException e) {
+        showAlert(Alert.AlertType.ERROR, "Error", "Invalid fare amount. Please enter a valid price.");
     }
+}
 
     @FXML
-    void handlePayButton(ActionEvent event) {
-        String paymentMethod = selectPaymentCBox.getValue(); // Get selected payment method
-        if (paymentMethod == null || paymentMethod.isEmpty()) {
-            showAlert(Alert.AlertType.ERROR, "Error", "Please select a payment method first.");
-            return;
-        }
-
-        // Ensure that the fare is valid before proceeding
-        String fareText = faredisplay.getText().replace("₱", "").trim();
-        if (fareText.isEmpty()) {
-            showAlert(Alert.AlertType.ERROR, "Error", "Fare amount is missing.");
-            return;
-        }
-
-        try {
-            double fareAmount = Double.parseDouble(fareText);
-            if (fareAmount <= 0) {
-                showAlert(Alert.AlertType.ERROR, "Error", "Invalid fare amount. Please check the applied discount.");
-                return;
-            }
-
-            // Proceed with payment processing
-            showAlert(Alert.AlertType.INFORMATION, "Payment Successful",
-                    "Thank you for successfully paying ₱" + String.format("%.2f", fareAmount) + " using " + paymentMethod + ".");
-            isPaid = true; // Set the flag to true when payment is made
-
-            System.out.println("✔ Payment Successful!");
-            System.out.println("✔ Paid Amount: ₱" + fareAmount);
-            System.out.println("✔ Payment Method: " + paymentMethod);
-
-        } catch (NumberFormatException e) {
-            System.out.println("❌ Error: Failed to parse fare from faredisplay.");
-            showAlert(Alert.AlertType.ERROR, "Error", "Invalid fare format.");
-        }
+void handlePayButton(ActionEvent event) {
+    String paymentMethod = selectPaymentCBox.getValue();
+    if (paymentMethod == null || paymentMethod.isEmpty()) {
+        showAlert(Alert.AlertType.ERROR, "Error", "Please select a payment method first.");
+        return;
     }
+
+    String fareText = faredisplay.getText().replace("₱", "").trim();
+    if (fareText.isEmpty()) {
+        showAlert(Alert.AlertType.ERROR, "Error", "Fare amount is missing.");
+        return;
+    }
+
+    try {
+        double fareAmount = Double.parseDouble(fareText);
+        if (fareAmount <= 0) {
+            showAlert(Alert.AlertType.ERROR, "Error", "Invalid fare amount.");
+            return;
+        }
+
+        String usedPromo = entervoucherTextfield.getText().trim();
+        String paymentId = DatabaseHandler.generatePaymentId(); // Generate PaymentID first
+
+        // Insert into paymentmethod table
+        String insertPaymentQuery = "INSERT INTO paymentmethod (PaymentID, PaymentMethod, Promo) VALUES (?, ?, ?)";
+        
+        try (Connection conn = DatabaseHandler.getDBConnection();
+             PreparedStatement stmt = conn.prepareStatement(insertPaymentQuery)) {
+            
+            stmt.setString(1, paymentId);
+            stmt.setString(2, paymentMethod);
+            stmt.setString(3, usedPromo.isEmpty() ? null : usedPromo);
+            
+            int rowsAffected = stmt.executeUpdate();
+
+            if (rowsAffected > 0) {
+                // Store the payment ID and set isPaid flag
+                this.paymentId = paymentId;
+                this.isPaid = true;
+
+                showAlert(Alert.AlertType.INFORMATION, "Payment Successful",
+                    "Payment ID: " + paymentId + "\nAmount: ₱" + String.format("%.2f", fareAmount));
+
+                System.out.println("✅ Payment Successful!");
+                System.out.println("✅ Payment ID: " + paymentId);
+                System.out.println("✅ Amount: ₱" + fareAmount);
+                System.out.println("✅ Method: " + paymentMethod);
+                System.out.println("✅ isPaid set to: " + isPaid);
+                
+                if (!usedPromo.isEmpty()) {
+                    System.out.println("✅ Promo Used: " + usedPromo);
+                }
+
+                // Enable the End Ride button after successful payment
+                endRideButton.setDisable(false);
+            } else {
+                showAlert(Alert.AlertType.ERROR, "Error", "Failed to save payment information.");
+            }
+        }
+    } catch (SQLException e) {
+        System.out.println("❌ SQL Error: " + e.getMessage());
+        e.printStackTrace();
+        showAlert(Alert.AlertType.ERROR, "Error", "Failed to process payment.");
+    } catch (NumberFormatException e) {
+        showAlert(Alert.AlertType.ERROR, "Error", "Invalid fare amount format.");
+    }
+}
 
     @FXML
     void handleApplyVoucher(ActionEvent event) {
-        String promoCode = entervoucherTextfield.getText().trim();
-        if (promoCode.isEmpty()) {
-            showAlert(Alert.AlertType.ERROR, "Error", "Please enter a promo code.");
+    String promoCode = entervoucherTextfield.getText().trim();
+    if (promoCode.isEmpty()) {
+        showAlert(Alert.AlertType.ERROR, "Error", "Please enter a promo code.");
+        return;
+    }
+
+    // Get current customer ID from UserSession
+    String currentCustomerId = UserSession.getInstance().getCustomerId();
+    if (currentCustomerId == null || currentCustomerId.isEmpty()) {
+        showAlert(Alert.AlertType.ERROR, "Error", "No logged-in customer found.");
+        return;
+    }
+
+    String url = "jdbc:mysql://localhost:3306/moveit";
+    String user = "root";
+    String password = "password";
+
+    String fetchDiscountQuery = "SELECT Percentage FROM promotable WHERE Promo = ?";
+    String checkUsedVoucherQuery = "SELECT * FROM UsedVouchers WHERE Customer_id = ? AND PromoCode = ?";
+    String insertUsedVoucherQuery = "INSERT INTO UsedVouchers (Customer_id, PromoCode) VALUES (?, ?)";
+
+    try (Connection conn = DriverManager.getConnection(url, user, password);
+         PreparedStatement fetchStmt = conn.prepareStatement(fetchDiscountQuery);
+         PreparedStatement checkStmt = conn.prepareStatement(checkUsedVoucherQuery);
+         PreparedStatement insertStmt = conn.prepareStatement(insertUsedVoucherQuery)) {
+
+        // Check if the voucher has already been used by the customer
+        checkStmt.setString(1, currentCustomerId);
+        checkStmt.setString(2, promoCode);
+        ResultSet checkRs = checkStmt.executeQuery();
+
+        if (checkRs.next()) {
+            showAlert(Alert.AlertType.ERROR, "Error", "This promo code has already been used.");
             return;
         }
 
-        String url = "jdbc:mysql://localhost:3306/moveit";
-        String user = "root";
-        String password = "password";
+        // Fetch the discount percentage for the promo code
+        fetchStmt.setString(1, promoCode);
+        ResultSet rs = fetchStmt.executeQuery();
 
-        String fetchDiscountQuery = "SELECT Percentage FROM promotable WHERE Promo = ?";
+        if (rs.next()) {
+            int discountPercent = rs.getInt("Percentage");
+            System.out.println("✔ Promo Code Found: " + promoCode);
+            System.out.println("✔ Discount Percentage: " + discountPercent + "%");
 
-        try (Connection conn = DriverManager.getConnection(url, user, password);
-             PreparedStatement stmt = conn.prepareStatement(fetchDiscountQuery)) {
+            String fareText = faredisplay.getText().replace("₱", "").trim();
+            System.out.println("✔ Fare Before Discount: " + fareText);
 
-            stmt.setString(1, promoCode);
-            ResultSet rs = stmt.executeQuery();
-
-            if (rs.next()) {
-                int discountPercent = rs.getInt("Percentage");
-                System.out.println("✔ Promo Code Found: " + promoCode);
-                System.out.println("✔ Discount Percentage: " + discountPercent + "%");
-
-                String fareText = faredisplay.getText().replace("₱", "").trim();
-                System.out.println("✔ Fare Before Discount: " + fareText);
-
-                if (fareText.isEmpty()) {
-                    showAlert(Alert.AlertType.ERROR, "Error", "Fare is missing. Please check your booking details.");
-                    return;
-                }
-
-                double originalFare = Double.parseDouble(fareText);
-                double discountAmount = originalFare * (discountPercent / 100.0);
-                double finalFare = originalFare - discountAmount;
-
-                System.out.println("✔ Discount Amount: ₱" + discountAmount);
-                System.out.println("✔ Final Fare After Discount: ₱" + finalFare);
-
-                // Update UI using Platform.runLater()
-                Platform.runLater(() -> faredisplay.setText(String.format("₱%.2f", finalFare)));
-
-                showAlert(Alert.AlertType.INFORMATION, "Voucher Applied",
-                        "Promo Code: " + promoCode + "\nDiscount: " + discountPercent + "%\nNew Fare: ₱" + finalFare);
-            } else {
-                System.out.println("❌ Invalid Promo Code Entered: " + promoCode);
-                showAlert(Alert.AlertType.ERROR, "Error", "Invalid promo code.");
+            if (fareText.isEmpty()) {
+                showAlert(Alert.AlertType.ERROR, "Error", "Fare is missing. Please check your booking details.");
+                return;
             }
 
-        } catch (SQLException e) {
-            e.printStackTrace();
-            showAlert(Alert.AlertType.ERROR, "Error", "An error occurred while applying the voucher.");
-        } catch (NumberFormatException e) {
-            System.out.println("❌ Error: Failed to parse fare from faredisplay.");
-            showAlert(Alert.AlertType.ERROR, "Error", "Invalid fare format.");
+            double originalFare = Double.parseDouble(fareText);
+            double discountAmount = originalFare * (discountPercent / 100.0);
+            double finalFare = originalFare - discountAmount;
+
+            System.out.println("✔ Discount Amount: ₱" + discountAmount);
+            System.out.println("✔ Final Fare After Discount: ₱" + finalFare);
+
+            // Update UI using Platform.runLater()
+            Platform.runLater(() -> {
+                faredisplay.setText(String.format("₱%.2f", finalFare));
+                System.out.println("✔ Fare display updated to: " + faredisplay.getText());
+            });
+
+            showAlert(Alert.AlertType.INFORMATION, "Voucher Applied",
+                    "Promo Code: " + promoCode + "\nDiscount: " + discountPercent + "%\nNew Fare: ₱" + finalFare);
+
+            // Mark the voucher as used by inserting a record into the UsedVouchers table
+            insertStmt.setString(1, currentCustomerId);
+            insertStmt.setString(2, promoCode);
+            insertStmt.executeUpdate();
+
+        } else {
+            System.out.println("❌ Invalid Promo Code Entered: " + promoCode);
+            showAlert(Alert.AlertType.ERROR, "Error", "Invalid promo code.");
         }
+
+    } catch (SQLException e) {
+        e.printStackTrace();
+        showAlert(Alert.AlertType.ERROR, "Error", "An error occurred while applying the voucher.");
+    } catch (NumberFormatException e) {
+        System.out.println("❌ Error: Failed to parse fare from faredisplay.");
+        showAlert(Alert.AlertType.ERROR, "Error", "Invalid fare format.");
     }
+}
 
     private void showAlert(Alert.AlertType alertType, String title, String message) {
         Alert alert = new Alert(alertType);

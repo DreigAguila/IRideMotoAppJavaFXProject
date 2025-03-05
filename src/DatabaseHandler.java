@@ -486,7 +486,7 @@ public class DatabaseHandler {
             String ratingQuery = "INSERT INTO RiderRatingTable (Rider_id, Rating, ShipOnTime) VALUES (?, ?, ?)";
             pstatement = getDBConnection().prepareStatement(ratingQuery);
             pstatement.setString(1, riderId);
-            pstatement.setString(2, rider.getRating()); // Ensure Rider object has a rating
+            pstatement.setInt(2, rider.getRating()); // Ensure Rider object has a rating
             pstatement.setString(3, shipontime);
             pstatement.executeUpdate();
             pstatement.close();
@@ -600,7 +600,7 @@ public class DatabaseHandler {
             shipontime = "60%";
             break;
         case 2:
-            shipontime = "40%";
+            shipontime = "39%";
             break;
         case 1:
             shipontime = "20%";
@@ -712,49 +712,113 @@ public class DatabaseHandler {
             }
 }
 
-    public static void storeBooking(String customerId, LocalTime pickupTime, LocalDateTime arrivalTime, double amountPaid) {
-    String transactionSql = "INSERT INTO TransactionTable (Transaction_id, Booking_id, Customer_id, Rider_id, pickup_time, arrival_time, amount_paid, payment_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    public static Rider getRandomRider() {
+    String query = "SELECT R.Rider_id, R.RiderFullname, R.RiderContactNo, RL.Zip, RL.City, RL.Street, " +
+            "V.PlateNumber, V.Vehicle, COALESCE(RR.Rating, 0) AS Rating, COALESCE(RR.ShipOnTime, 'N/A') AS ShipOnTime " +
+            "FROM RiderTable R " +
+            "LEFT JOIN RiderLocationTable RL ON R.Rider_id = RL.Rider_id " +
+            "LEFT JOIN VehicleTable V ON R.Rider_id = V.Rider_id " +
+            "LEFT JOIN RiderRatingTable RR ON R.Rider_id = RR.Rider_id " +
+            "ORDER BY RAND() " +
+            "LIMIT 1";
 
-    try (Connection conn = getDBConnection();
-         PreparedStatement transactionStmt = conn.prepareStatement(transactionSql)) {
+    try (Connection connection = getDBConnection();
+         PreparedStatement stmt = connection.prepareStatement(query);
+         ResultSet rs = stmt.executeQuery()) {
 
-        // Generate the next Transaction_id and Booking_id
-        String nextTransactionId = getNextTransactionId(conn);
-        String nextBookingId = getNextBookingId(conn);
+        if (rs.next()) {
+            String riderId = rs.getString("Rider_id");
+            String riderFullname = rs.getString("RiderFullname");
+            String riderContactNo = rs.getString("RiderContactNo");
+            String zip = rs.getString("Zip");
+            String city = rs.getString("City");
+            String street = rs.getString("Street");
+            String plateNumber = rs.getString("PlateNumber");
+            String vehicle = rs.getString("Vehicle");
+            int rating = rs.getInt("Rating");
+            String shipOnTime = rs.getString("ShipOnTime");
 
-        // Retrieve Rider ID from UserSession
-        Transaction transaction = UserSession.getInstance().getTransaction();
-        String riderId = (transaction != null && transaction.getRiderId() != null) 
-                ? transaction.getRiderId() 
-                : "No rider assigned";  // Default value if no rider is assigned
-
-        LocalDate pickupDate = LocalDate.now(); // Get the current pickup date
-
-        // Set parameters for the SQL statement
-        transactionStmt.setString(1, nextTransactionId); // Transaction_id
-        transactionStmt.setString(2, nextBookingId); // Booking_id
-        transactionStmt.setString(3, customerId);
-        transactionStmt.setString(4, riderId); // Rider_id (handles NULL)
-        transactionStmt.setTimestamp(5, Timestamp.valueOf(LocalDateTime.of(pickupDate, pickupTime))); // pickup_time
-        transactionStmt.setTimestamp(6, Timestamp.valueOf(arrivalTime)); // arrival_time
-        transactionStmt.setDouble(7, amountPaid); // amount_paid
-        transactionStmt.setString(8, "Paid"); // payment_status
-
-        // Execute the statement
-        int transactionRowsInserted = transactionStmt.executeUpdate();
-
-        if (transactionRowsInserted > 0) {
-            System.out.println("✅ Transaction stored successfully for customer: " + customerId);
-        } else {
-            System.out.println("❌ Failed to store transaction.");
+            return new Rider(riderId, riderFullname, riderContactNo, zip, city, street, plateNumber, vehicle, rating, shipOnTime);
         }
-
     } catch (SQLException e) {
-        e.printStackTrace(); // Log error properly
+        e.printStackTrace();
     }
+    return null;
 }
 
+    public static String storeBooking(String customerId, LocalTime pickupTime, LocalDateTime arrivalTime, 
+    double amountPaid, String paymentId) {
+    String transactionSql = "INSERT INTO transactiontable (Transaction_id, Booking_id, Customer_id, " +
+        "Rider_id, transaction_date, pickup_time, arrival_time, amount_paid, " +
+        "payment_status, PaymentID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
+    try (Connection conn = getDBConnection()) {
+    // Get next IDs
+    String nextTransactionId = getNextTransactionId(conn);
+    String nextBookingId = getNextBookingId(conn);
+
+    // Get random rider and store their ID
+    Rider randomRider = getRandomRider();
+    if (randomRider == null) {
+        System.out.println("❌ No rider available for assignment.");
+        return null;
+    }
+    String riderId = randomRider.getRiderid();
+
+    // Log the assigned rider details
+    System.out.println("✅ Random Rider assigned:");
+    System.out.println("   🆔 Rider ID: " + riderId);
+    System.out.println("   👤 Name: " + randomRider.getRiderfullname());
+    System.out.println("   🏍️ Vehicle: " + randomRider.getVehicle());
+    System.out.println("   🔢 Plate: " + randomRider.getPlatenumber());
+
+    try (PreparedStatement transactionStmt = conn.prepareStatement(transactionSql)) {
+        transactionStmt.setString(1, nextTransactionId);
+        transactionStmt.setString(2, nextBookingId);
+        transactionStmt.setString(3, customerId);
+        transactionStmt.setString(4, riderId);
+        transactionStmt.setTimestamp(5, Timestamp.valueOf(LocalDateTime.now()));
+        transactionStmt.setTimestamp(6, Timestamp.valueOf(LocalDateTime.of(LocalDate.now(), pickupTime)));
+        transactionStmt.setTimestamp(7, Timestamp.valueOf(arrivalTime));
+        transactionStmt.setDouble(8, amountPaid);
+        transactionStmt.setString(9, "Paid");
+        transactionStmt.setString(10, paymentId);
+
+        int rowsAffected = transactionStmt.executeUpdate();
+        if (rowsAffected > 0) {
+            System.out.println("✅ Booking stored successfully:");
+            System.out.println("   📝 Transaction ID: " + nextTransactionId);
+            System.out.println("   📦 Booking ID: " + nextBookingId);
+            System.out.println("   💳 Payment ID: " + paymentId);
+            System.out.println("   💰 Amount: ₱" + amountPaid);
+            return riderId;
+        }
+    }
+    } catch (SQLException e) {
+    System.out.println("❌ Error storing booking:");
+    System.out.println("   Error message: " + e.getMessage());
+    e.printStackTrace();
+    }
+    return null;
+}
+    public static String generatePaymentId() throws SQLException {
+    String query = "SELECT PaymentID FROM paymentmethod ORDER BY PaymentID DESC LIMIT 1";
+    
+    try (Connection conn = getDBConnection();
+         PreparedStatement stmt = conn.prepareStatement(query)) {
+        
+        ResultSet rs = stmt.executeQuery();
+        
+        if (rs.next()) {
+            String lastId = rs.getString("PaymentID");
+            // Assuming PaymentID format is 'P001', 'P002', etc.
+            int nextNum = Integer.parseInt(lastId.substring(1)) + 1;
+            return String.format("P%03d", nextNum);
+        } else {
+            return "P001"; // First payment
+        }
+    }
+}
 
     public static ObservableList<Transaction> getTransactions() {
     ObservableList<Transaction> transactionList = FXCollections.observableArrayList();
@@ -776,6 +840,7 @@ public class DatabaseHandler {
             double amountPaid = rs.getDouble("amount_paid");
             String paymentStatus = rs.getString("payment_status");
 
+            System.out.println("Rider_id: " + riderId);
             transactionList.add(new Transaction(transactionId, bookingId, customerId, riderId, transactionDate, pickupTime, arrivalTime, amountPaid, paymentStatus));
         }   
     } catch (SQLException e) {
@@ -787,7 +852,7 @@ public class DatabaseHandler {
 
 public static ObservableList<Transaction> getTransactionsForCustomer(String customerId) {
     ObservableList<Transaction> transactions = FXCollections.observableArrayList();
-    String query = "SELECT * FROM TransactionTable WHERE Customer_id = ?";
+    String query = "SELECT * FROM transactiontable WHERE Customer_id = ?";
 
     try (Connection conn = getDBConnection();
          PreparedStatement stmt = conn.prepareStatement(query)) {
@@ -816,60 +881,96 @@ public static ObservableList<Transaction> getTransactionsForCustomer(String cust
     return transactions;
 }
 
-    public static void updateRiderRating(String riderId, int newRating) {
+public static void updateRiderRating(String riderId, int newRating) {
+    // Validate rating range
+    if (newRating < 1 || newRating > 5) {
+        System.out.println("❌ Invalid rating. Must be between 1 and 5.");
+        return;
+    }
 
-        if (riderId == null || riderId.trim().isEmpty()) {
-            System.out.println("❌ Rider ID is NULL. Cannot update rating.");
-            return; // Prevent execution
-        }
+    // Validate rider ID
+    if (riderId == null || riderId.trim().isEmpty()) {
+        System.out.println("❌ Rider ID is NULL. Cannot update rating.");
+        return;
+    }
+
+    // First verify the rider exists
+    String checkRiderQuery = "SELECT COUNT(*) FROM RiderTable WHERE Rider_id = ?";
+    String insertRatingQuery = "INSERT INTO RiderRatingTable (Rider_id, Rating, ShipOnTime) VALUES (?, ?, ?)";
+    String updateRatingQuery = "UPDATE RiderRatingTable SET Rating = ?, ShipOnTime = ? WHERE Rider_id = ?";
+
+    try (Connection conn = getDBConnection();
+         PreparedStatement checkStmt = conn.prepareStatement(checkRiderQuery)) {
+
+        // Check if rider exists
+        checkStmt.setString(1, riderId);
+        ResultSet checkRs = checkStmt.executeQuery();
         
-        String fetchRatingsQuery = "SELECT Rating FROM RiderRatingTable WHERE Rider_id = ?";
-        String updateRatingQuery = "UPDATE RiderRatingTable SET Rating = ?, ShipOnTime = ? WHERE Rider_id = ?";
+        if (!checkRs.next() || checkRs.getInt(1) == 0) {
+            System.out.println("❌ Rider not found: " + riderId);
+            return;
+        }
 
-        try (Connection conn = getDBConnection();
-             PreparedStatement fetchStmt = conn.prepareStatement(fetchRatingsQuery);
-             PreparedStatement updateStmt = conn.prepareStatement(updateRatingQuery)) {
-
-            fetchStmt.setString(1, riderId);
-            ResultSet rs = fetchStmt.executeQuery();
-
-            int totalRatings = 0;
-            int ratingCount = 0;
-
-            while (rs.next()) {
-                totalRatings += rs.getInt("Rating");
-                ratingCount++;
-            }
-
-            // Include the new rating in the calculation
-            totalRatings += newRating;
-            ratingCount++;
-
-            // Calculate the mean rating
-            double meanRating = (double) totalRatings / ratingCount;
-
-            // Determine the shipontime based on the mean rating
+        // Calculate the average rating including the new rating
+        String avgQuery = "SELECT AVG(Rating) as avg_rating FROM RiderRatingTable WHERE Rider_id = ?";
+        try (PreparedStatement avgStmt = conn.prepareStatement(avgQuery)) {
+            avgStmt.setString(1, riderId);
+            ResultSet avgRs = avgStmt.executeQuery();
+            
+            double currentAvg = avgRs.next() ? avgRs.getDouble("avg_rating") : 0.0;
+            int ratingCount = getRatingCount(conn, riderId);
+            
+            // Calculate new average including the new rating
+            double newAverage = ((currentAvg * ratingCount) + newRating) / (ratingCount + 1);
+            
+            // Calculate ShipOnTime based on the new average
             String shipOnTime;
-            if (meanRating >= 4.5) {
+            if (newAverage >= 4.5) {
                 shipOnTime = "99%";
-            } else if (meanRating >= 4.0) {
+            } else if (newAverage >= 4.0) {
                 shipOnTime = "80%";
-            } else if (meanRating >= 3.0) {
+            } else if (newAverage >= 3.0) {
                 shipOnTime = "60%";
-            } else if (meanRating >= 2.0) {
-                shipOnTime = "40%";
+            } else if (newAverage >= 2.0) {
+                shipOnTime = "39%";
             } else {
                 shipOnTime = "20%";
             }
 
-            // Update the rider's rating and shipontime
-            updateStmt.setDouble(1, meanRating);
-            updateStmt.setString(2, shipOnTime);
-            updateStmt.setString(3, riderId);
-            updateStmt.executeUpdate();
+            // Update or insert the rating
+            if (ratingCount > 0) {
+                try (PreparedStatement updateStmt = conn.prepareStatement(updateRatingQuery)) {
+                    updateStmt.setDouble(1, newAverage);
+                    updateStmt.setString(2, shipOnTime);
+                    updateStmt.setString(3, riderId);
+                    updateStmt.executeUpdate();
+                }
+            } else {
+                try (PreparedStatement insertStmt = conn.prepareStatement(insertRatingQuery)) {
+                    insertStmt.setString(1, riderId);
+                    insertStmt.setDouble(2, newRating);
+                    insertStmt.setString(3, shipOnTime);
+                    insertStmt.executeUpdate();
+                }
+            }
 
-        } catch (SQLException e) {
-            e.printStackTrace();
+            System.out.println("✅ Rating updated successfully");
+            System.out.println("📊 New Average Rating: " + String.format("%.2f", newAverage));
+            System.out.println("🚀 Ship On Time: " + shipOnTime);
         }
+
+    } catch (SQLException e) {
+        System.out.println("❌ Error updating rating: " + e.getMessage());
+        e.printStackTrace();
     }
+    }
+    // Helper method to get the count of ratings for a rider
+    private static int getRatingCount(Connection conn, String riderId) throws SQLException {
+    String countQuery = "SELECT COUNT(*) FROM RiderRatingTable WHERE Rider_id = ?";
+    try (PreparedStatement countStmt = conn.prepareStatement(countQuery)) {
+        countStmt.setString(1, riderId);
+        ResultSet rs = countStmt.executeQuery();
+        return rs.next() ? rs.getInt(1) : 0;
+    }
+}
 }

@@ -36,8 +36,6 @@
 <?import javafx.scene.control.Button?>
 <?import javafx.scene.control.ComboBox?>
 <?import javafx.scene.control.Label?>
-<?import javafx.scene.control.TableColumn?>
-<?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.image.Image?>
 <?import javafx.scene.image.ImageView?>
@@ -94,16 +92,6 @@
                   <Label fx:id="riderLocationInfo" layoutX="200.0" layoutY="93.0" text="Location" />
                   <Label fx:id="riderVehicleInfo" layoutX="200.0" layoutY="71.0" text="Vehicle Model" />
                   <Label fx:id="rideridInfo" layoutX="85.0" layoutY="71.0" text="ID" />
-                  <TableView fx:id="randomRiderInfo" layoutX="84.0" layoutY="49.0" prefHeight="61.0" prefWidth="306.0" style="-fx-background-color: white;">
-                    <columns>
-                      <TableColumn fx:id="riderIdColumn" prefWidth="75.0" text="ID" />
-                      <TableColumn fx:id="riderNameColumn" prefWidth="100.0" text="Name" />
-                        <TableColumn fx:id="riderPhoneColumn" prefWidth="100.0" text="PhoneNumber" />
-                        <TableColumn fx:id="riderPlateColumn" prefWidth="100.0" text="PlateNumber" />
-                        <TableColumn fx:id="riderLocation" prefWidth="100.0" text="Location" />
-                        <TableColumn fx:id="riderVehicleColumn" prefWidth="100.0" text="VehicleModel" />
-                    </columns>
-                  </TableView>
                </children>
             </Pane>
             <Label layoutX="153.0" layoutY="115.0" prefHeight="54.0" prefWidth="144.0" text="IRIDEMOTO">

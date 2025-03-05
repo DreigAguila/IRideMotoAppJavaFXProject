@@ -42,7 +42,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<VBox prefHeight="350.0" prefWidth="400.0" style="-fx-background-color: white;" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="RatingController">
+<VBox prefHeight="350.0" prefWidth="400.0" style="-fx-background-color: white;" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="RatingYourDriverController">
    <children>
       <Pane prefHeight="362.0" prefWidth="400.0">
          <children>

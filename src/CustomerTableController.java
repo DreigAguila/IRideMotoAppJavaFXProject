@@ -239,7 +239,7 @@ public class CustomerTableController implements Initializable{
             showAlert(AlertType.ERROR, "Please select a user to update.");
             return;
         }
-            String oldCustomerFullName = selectedCustomer.getCustomerFullName();
+            String oldCustomerFullName = selectedCustomer.getCustomerfullname();
             String newCustomerfullname = customerfullnametextfield.getText().trim();
             String newCustomerpassword = customerpasstextfield.getText().trim();
             String newCustomercity = customercitytextfield.getText().trim();
@@ -281,7 +281,7 @@ public class CustomerTableController implements Initializable{
             return;
         }
         
-        Customer updatedCustomer = new Customer(selectedCustomer.getCustomerId(), newCustomerfullname, newCustomerpassword, newCustomercity, 
+        Customer updatedCustomer = new Customer(selectedCustomer.getCustomerid(), newCustomerfullname, newCustomerpassword, newCustomercity, 
         newCustomerzip, newCustomerstreet, newCustomernumber, newCustomeremail);
         if(DatabaseHandler.updateCustomer(oldCustomerFullName, updatedCustomer)){
             showAlert(AlertType.INFORMATION, "Successfully updated");
@@ -303,7 +303,7 @@ public class CustomerTableController implements Initializable{
             return;
         }
 
-        if(DatabaseHandler.deleteCustomer(selectedCustomer.getCustomerFullName())){
+        if(DatabaseHandler.deleteCustomer(selectedCustomer.getCustomerfullname())){
             showAlert(AlertType.INFORMATION, "Successfully deleted");
             displayCustomer();
         } else {
