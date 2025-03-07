@@ -36,19 +36,45 @@ public class RatingYourDriverController {
 
     private void navigateToHomepage(ActionEvent event) {
         try {
+            // Get the current stage from the event source
+            Stage currentStage = (Stage) ((Node) event.getSource()).getScene().getWindow();
+            
+            // Load the homepage
             FXMLLoader loader = new FXMLLoader(getClass().getResource("IRMhomepage.fxml"));
             Parent root = loader.load();
-            Stage stage = (Stage) ((Node) event.getSource()).getScene().getWindow();
             Scene scene = new Scene(root);
-            stage.setScene(scene);
-            stage.show();
-            stage.centerOnScreen();
+            
+            // Get the main application window (owner)
+            Stage mainStage = (Stage) currentStage.getOwner();
+            if (mainStage != null) {
+                // Update the main stage with homepage
+                mainStage.setScene(scene);
+                mainStage.show();
+                mainStage.centerOnScreen();
+                
+                // Close the rating window
+                currentStage.close();
+                
+                System.out.println("✅ Successfully navigated to homepage");
+            } else {
+                System.out.println("❌ Could not find main application window");
+                // Fallback: Just close the rating window
+                currentStage.close();
+            }
         } catch (Exception e) {
-            System.out.println("❌ Error loading IRMhomepage.fxml: " + e.getMessage());
+            System.out.println("❌ Error during navigation: " + e.getMessage());
             e.printStackTrace();
+            
+            // Fallback: At least close the rating window
+            try {
+                Stage currentStage = (Stage) ((Node) event.getSource()).getScene().getWindow();
+                currentStage.close();
+            } catch (Exception ex) {
+                System.out.println("❌ Could not close rating window: " + ex.getMessage());
+            }
         }
     }
-
+    
     @FXML
     void handleSubmitRating(ActionEvent event) {
         if (riderId != null && !riderId.isEmpty()) {

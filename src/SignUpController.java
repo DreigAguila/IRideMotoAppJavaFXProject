@@ -1,4 +1,8 @@
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -50,6 +54,7 @@ public class SignUpController{
 
     private final Pattern gmailPattern = Pattern.compile("^[a-zA-Z0-9._%+-]+@gmail\\.com$");
     private final Pattern phoneNumberPattern = Pattern.compile("^09\\d{9}$");
+    private final Pattern zipCodePattern = Pattern.compile("^\\d{4}$");
 
 
     @FXML
@@ -96,22 +101,61 @@ public class SignUpController{
         }  if (!phoneNumberPattern.matcher(contactNumber).matches()) {
             showAlert(AlertType.ERROR, "Phone number must start with 09 and be exactly 11 digits long");
             return;
-        }
+        }  if (!zipCodePattern.matcher(zip).matches()) {
+        showAlert(AlertType.ERROR, "Zip code must be exactly 4 digits");
+        return;
+    }
+    
 
-        Alert confirmationAlert = new Alert(AlertType.CONFIRMATION, "Are you sure you want to create this account?", ButtonType.YES, ButtonType.NO);
-        Optional<ButtonType> result = confirmationAlert.showAndWait();
-        if (result.isPresent() && result.get() == ButtonType.YES) {
-            Customer customer = new Customer("", customerFullName, password, city, zip, street, contactNumber, email);
+         // Check for duplicate email and contact number
+    try {
+        String checkQuery = "SELECT Email, ContactNum FROM ContactTable WHERE Email = ? OR ContactNum = ?";
+        try (Connection conn = DatabaseHandler.getDBConnection();
+             PreparedStatement stmt = conn.prepareStatement(checkQuery)) {
+            
+            stmt.setString(1, email);
+            stmt.setString(2, contactNumber);
+            ResultSet rs = stmt.executeQuery();
 
-            if (DatabaseHandler.addCustomer(customer)) {
-                showAlert(AlertType.INFORMATION, "Your account has been successfully created.");
-                clearFields();
-                returntocustomerloginHandler(event);
-            } else {
-                showAlert(AlertType.ERROR, "Cannot create customer.");
+            if (rs.next()) {
+                String existingEmail = rs.getString("Email");
+                String existingContact = rs.getString("ContactNum");
+
+                if (email.equals(existingEmail)) {
+                    showAlert(AlertType.ERROR, "Email address already registered");
+                    return;
+                }
+                if (contactNumber.equals(existingContact)) {
+                    showAlert(AlertType.ERROR, "Contact number already registered");
+                    return;
+                }
             }
         }
+    } catch (SQLException e) {
+        e.printStackTrace();
+        showAlert(AlertType.ERROR, "Error checking for existing accounts");
+        return;
     }
+    
+        Alert confirmationAlert = new Alert(AlertType.CONFIRMATION, 
+        "Are you sure you want to create this account?", 
+        ButtonType.YES, ButtonType.NO);
+        Optional<ButtonType> result = confirmationAlert.showAndWait();
+
+    if (result.isPresent() && result.get() == ButtonType.YES) {
+        Customer customer = new Customer("", customerFullName, password, 
+            city, zip, street, contactNumber, email);
+
+        if (DatabaseHandler.addCustomer(customer)) {
+            showAlert(AlertType.INFORMATION, "Your account has been successfully created.");
+            clearFields();
+            returntocustomerloginHandler(event);
+        } else {
+            showAlert(AlertType.ERROR, "Cannot create customer.");
+        }
+    }
+}
+
     private void showAlert(AlertType alertType, String message) {
         Alert alert = new Alert(alertType, message, ButtonType.OK);
         alert.showAndWait();

@@ -175,9 +175,20 @@ void handleBackButton(ActionEvent event) throws IOException {
     }
 
     @FXML
-    void calculateETA(ActionEvent event) {
-    String origin = pickupLocationLabel.getText(); // Use actual origin
-    String destination = dropOffLocationLabel.getText(); // Use actual destination
+void calculateETA(ActionEvent event) {
+    String origin = pickupLocationLabel.getText();
+    String destination = dropOffLocationLabel.getText();
+
+    if (origin.isEmpty() || destination.isEmpty()) {
+        showAlert(Alert.AlertType.ERROR, "Error", "Origin and destination must be set.");
+        return;
+    }
+
+    String timeInput = enterTimeTextfield.getText().trim();
+    if (timeInput.isEmpty()) {
+        showAlert(Alert.AlertType.ERROR, "Error", "Please enter a pickup time.");
+        return;
+    }
 
     String query = "SELECT distance_km FROM fare_matrix WHERE origin = ? AND destination = ?";
 
@@ -190,36 +201,44 @@ void handleBackButton(ActionEvent event) throws IOException {
 
         if (rs.next()) {
             double distanceKm = rs.getDouble("distance_km");
-            double etaMinutes = distanceKm * 1.5;
+            // Calculate ETA: Assume average speed of 40 km/h
+            double etaMinutes = (distanceKm / 40.0) * 60;
 
-            // Parse the time input
-            String timeInput = enterTimeTextfield.getText().trim();
             DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("h:mm a");
             try {
-                LocalTime time = LocalTime.parse(timeInput, timeFormatter);
-                LocalTime etaTime = time.plusMinutes((long) etaMinutes);
+                LocalTime pickupTime = LocalTime.parse(timeInput, timeFormatter);
+                LocalTime etaTime = pickupTime.plusMinutes((long) etaMinutes);
                 String etaTimeFormatted = etaTime.format(timeFormatter);
-                String etaMessage = String.format("ETA: %s (%.2f minutes)", etaTimeFormatted, etaMinutes);
+                String etaMessage = String.format("%s (%.0f minutes)", 
+                    etaTimeFormatted, etaMinutes);
 
-                // Debugging: Print the calculated ETA
-                System.out.println("✔ Calculated ETA: " + etaMessage);
+                System.out.println("✅ Distance: " + distanceKm + " km");
+                System.out.println("✅ ETA Minutes: " + etaMinutes);
+                System.out.println("✅ Pickup Time: " + pickupTime);
+                System.out.println("✅ ETA Time: " + etaTimeFormatted);
 
-                // Update the estimatedTimeLabel using Platform.runLater()
+                // Update UI on JavaFX Application Thread
                 Platform.runLater(() -> {
                     estimatedTimeLabel.setText(etaMessage);
-                    System.out.println("✔ Estimated Time Label updated to: " + estimatedTimeLabel.getText());
+                    System.out.println("✅ Updated ETA Label: " + etaMessage);
                 });
 
             } catch (DateTimeParseException e) {
-                showAlert(Alert.AlertType.ERROR, "Error", "Invalid time format. Please use the format 'h:mm a' (e.g. 1:30 PM/AM).");
+                System.out.println("❌ Time parse error: " + e.getMessage());
+                showAlert(Alert.AlertType.ERROR, "Error", 
+                    "Invalid time format. Please use format like '9:30 AM' or '2:30 PM'");
             }
         } else {
-            estimatedTimeLabel.setText("No route found.");
+            System.out.println("❌ No route found between " + origin + " and " + destination);
+            showAlert(Alert.AlertType.ERROR, "Error", 
+                "No route found between selected locations.");
         }
 
     } catch (SQLException e) {
+        System.out.println("❌ Database error: " + e.getMessage());
         e.printStackTrace();
-        showAlert(Alert.AlertType.ERROR, "Error", "An error occurred while calculating the ETA.");
+        showAlert(Alert.AlertType.ERROR, "Error", 
+            "Failed to calculate ETA. Please try again.");
     }
 }
 
@@ -271,14 +290,36 @@ void handleBackButton(ActionEvent event) throws IOException {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("ratingyourDriver.fxml"));
             Parent ratingRoot = loader.load();
 
-            // Pass the correct rider ID to the rating controller
             RatingYourDriverController ratingController = loader.getController();
-            ratingController.setRiderId(currentRiderId); // Use the stored rider ID
+            ratingController.setRiderId(currentRiderId);
             System.out.println("✅ Passing Rider ID for rating: " + currentRiderId);
 
+            Stage currentStage = (Stage) ((Node) event.getSource()).getScene().getWindow();
             Stage ratingStage = new Stage();
+            ratingStage.initOwner(currentStage); // Set the owner stage
             ratingStage.setScene(new Scene(ratingRoot));
             ratingStage.setTitle("Rate Your Driver");
+            ratingStage.show();
+            
+            // Add a close request handler to navigate to homepage after rating
+            ratingStage.setOnHidden(e -> {
+                try {
+                    // Load homepage
+                    FXMLLoader homeLoader = new FXMLLoader(getClass().getResource("IRMhomepage.fxml"));
+                    Parent homeRoot = homeLoader.load();
+                    Scene homeScene = new Scene(homeRoot);
+                    
+                    // Set the homepage scene on the original stage
+                    currentStage.setScene(homeScene);
+                    currentStage.show();
+                    currentStage.centerOnScreen();
+                    
+                } catch (IOException ex) {
+                    System.out.println("❌ Error loading homepage: " + ex.getMessage());
+                    ex.printStackTrace();
+                }
+            });
+            
             ratingStage.show();
         } else {
             showAlert(Alert.AlertType.ERROR, "Error", "Failed to complete the booking.");

@@ -1,6 +1,9 @@
 import java.io.IOException;
 import java.net.URL;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.regex.Pattern;
@@ -106,6 +109,8 @@ public class RiderTableController implements Initializable{
     private TableColumn<Rider, String> shipontimeColumn;
 
     private final Pattern phoneNumberPattern = Pattern.compile("^09\\d{9}$");
+    private final Pattern zipCodePattern = Pattern.compile("^\\d{4}$");
+    private final Pattern plateNumberPattern = Pattern.compile("^[A-Z]{3}\\d{3}$");
 
     @FXML
     private Label riderusernamedisplay;
@@ -118,7 +123,34 @@ public class RiderTableController implements Initializable{
     public void initialize(URL url, ResourceBundle rb) {
         initializeCol();
         displayRider();
+
+        riderTable.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
+            if (newSelection != null && !newSelection.equals(oldSelection)) {
+                // Update text fields with selected user's data
+                riderfullnametextfield.setText(newSelection.getRiderfullname());
+                contactnotextfield.setText(newSelection.getRidercontactnumber());
+                ziptextfield.setText(newSelection.getZip());
+                citytextfield.setText(newSelection.getCity());
+                streettextfield.setText(newSelection.getStreet());
+                platenotextfield.setText(newSelection.getPlatenumber());
+                vehicletextfield.setText(newSelection.getVehicle());
+                ratingtextfield.setText(String.valueOf(newSelection.getRating()));
+    
+            } else if (newSelection == null) {
+                // Clear text fields if selection is null
+                riderfullnametextfield.clear();
+                contactnotextfield.clear();
+                ziptextfield.clear();
+                citytextfield.clear();
+                streettextfield.clear();
+                platenotextfield.clear();
+                vehicletextfield.clear();
+                ratingtextfield.clear();
+                
+            }
+        });
     }
+    
 
     private void initializeCol() {
         rideridColumn.setCellValueFactory(new PropertyValueFactory<>("riderid"));
@@ -221,6 +253,15 @@ public class RiderTableController implements Initializable{
         if (!phoneNumberPattern.matcher(createRiderContact).matches()) {
             showAlert(AlertType.ERROR, "Phone number must start with 09 and be exactly 11 digits long");
             return;
+        }if (!zipCodePattern.matcher(createZip).matches()) {
+        showAlert(AlertType.ERROR, "Zip code must be exactly 4 digits");
+        return;
+        } if (!plateNumberPattern.matcher(createPlatenumber).matches()) {
+            showAlert(AlertType.ERROR, "Plate number must be 3 capital letters followed by 3 numbers (e.g., ABC123)");
+            return;
+        }if (isContactNumberExists(createRiderContact, null)) {
+            showAlert(AlertType.ERROR, "Contact number already registered to another rider");
+            return;
         }
 
         int rating;
@@ -304,7 +345,17 @@ public class RiderTableController implements Initializable{
         if (!phoneNumberPattern.matcher(newRiderContact).matches()) {
             showAlert(AlertType.ERROR, "Phone number must start with 09 and be exactly 11 digits long");
             return;
-        }
+        }if (!zipCodePattern.matcher(newZip).matches()) {
+            showAlert(AlertType.ERROR, "Zip code must be exactly 4 digits");
+            return;
+        }if (!plateNumberPattern.matcher(newPlatenumber).matches()) {
+            showAlert(AlertType.ERROR, "Plate number must be 3 capital letters followed by 3 numbers (e.g., ABC123)");
+            return;
+        } if (isContactNumberExists(newRiderContact, selectedRider.getRiderid())) {
+        showAlert(AlertType.ERROR, "Contact number already registered to another rider");
+        return;
+    }
+
 
         int rating;
         try {
@@ -444,4 +495,19 @@ public class RiderTableController implements Initializable{
         }
 
     }
+
+    private boolean isContactNumberExists(String contactNumber, String currentRiderId) {
+    try (Connection conn = DatabaseHandler.getDBConnection();
+         PreparedStatement stmt = conn.prepareStatement(
+             "SELECT Rider_id FROM RiderTable WHERE RiderContactNo = ? AND Rider_id != ?")) {
+        stmt.setString(1, contactNumber);
+        stmt.setString(2, currentRiderId != null ? currentRiderId : "");
+        ResultSet rs = stmt.executeQuery();
+        return rs.next();
+    } catch (SQLException e) {
+        e.printStackTrace();
+        return false;
+    }
+}
+
 }

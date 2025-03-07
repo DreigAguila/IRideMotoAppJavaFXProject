@@ -107,7 +107,7 @@ public class CustomerTableController implements Initializable{
     //regex for email and contact number
     private final Pattern gmailPattern = Pattern.compile("^[a-zA-Z0-9._%+-]+@gmail\\.com$");
     private final Pattern phoneNumberPattern = Pattern.compile("^09\\d{9}$");
-
+    private final Pattern zipCodePattern = Pattern.compile("^\\d{4}$");
 
     public void displayName(String username)
     {
@@ -118,7 +118,31 @@ public class CustomerTableController implements Initializable{
     public void initialize(URL url, ResourceBundle rb){
         initializeCol();
         displayCustomer();
-    }
+           // Add table row selection listener
+    customerTable.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
+        if (newSelection != null && !newSelection.equals(oldSelection)) {
+            // Update text fields with selected user's data
+            customerfullnametextfield.setText(newSelection.getCustomerfullname());
+            customerpasstextfield.setText(newSelection.getPassword());  
+            customercitytextfield.setText(newSelection.getCity());
+            customerziptextfield.setText(newSelection.getZip());
+            customerstreettextfield.setText(newSelection.getStreet());
+            customercontactnotextfield.setText(newSelection.getContactnumber());
+            customeremailtextfield.setText(newSelection.getEmail());
+
+        } else if (newSelection == null) {
+            // Clear text fields if selection is null
+            customerfullnametextfield.clear();
+            customerpasstextfield.clear();
+            customercitytextfield.clear();
+            customerziptextfield.clear();
+            customerstreettextfield.clear();
+            customercontactnotextfield.clear();
+            customeremailtextfield.clear();
+            
+        }
+    });
+}
 
     private void initializeCol(){
         customerIDcolumn.setCellValueFactory(new PropertyValueFactory<>("customerid"));
@@ -210,6 +234,9 @@ public class CustomerTableController implements Initializable{
         } if (!phoneNumberPattern.matcher(createCustomernumber).matches()) {
             showAlert(AlertType.ERROR, "Phone number must start with 09 and be exactly 11 digits long");
             return;
+        }if (!zipCodePattern.matcher(createCustomerzip).matches()) {
+            showAlert(AlertType.ERROR, "Zip code must be exactly 4 digits");
+            return;
         }
 
     Customer customer = new Customer("", createCustomername, createCustomerpass, createCustomerCity, createCustomerzip, createCustomerstreet,
@@ -278,6 +305,9 @@ public class CustomerTableController implements Initializable{
             return;
         } if (!phoneNumberPattern.matcher(newCustomernumber).matches()) {
             showAlert(AlertType.ERROR, "Phone number must start with 09 and be exactly 11 digits long");
+            return;
+        } if (!zipCodePattern.matcher(newCustomerzip).matches()) {
+            showAlert(AlertType.ERROR, "Zip code must be exactly 4 digits");
             return;
         }
         

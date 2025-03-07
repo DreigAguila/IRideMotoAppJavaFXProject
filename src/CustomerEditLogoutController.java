@@ -56,6 +56,7 @@ public class CustomerEditLogoutController implements Initializable {
 
     private Customer currentCustomer;
 
+    
     @FXML
     public void initialize(URL url, ResourceBundle rb) {
     loadCustomerInformation();  // Load customer from session
@@ -141,6 +142,7 @@ public class CustomerEditLogoutController implements Initializable {
         // Regex validation
         Pattern gmailPattern = Pattern.compile("^[a-zA-Z0-9._%+-]+@gmail\\.com$");
         Pattern phoneNumberPattern = Pattern.compile("^09\\d{9}$");
+        Pattern zipCodePattern = Pattern.compile("^\\d{4}$");
 
         if (!gmailPattern.matcher(newEmail).matches()) {
             showAlert("Invalid Email", "Please enter a valid Gmail address (e.g., example@gmail.com).");
@@ -149,6 +151,9 @@ public class CustomerEditLogoutController implements Initializable {
 
         if (!phoneNumberPattern.matcher(newPhoneNumber).matches()) {
             showAlert("Invalid Phone Number", "Please enter a valid phone number (e.g., 09123456789).");
+            return;
+        } if (!zipCodePattern.matcher(newZip).matches()) {
+            showAlert("Invalid Zip Number", "Zip code must be exactly 4 digits");
             return;
         }
 

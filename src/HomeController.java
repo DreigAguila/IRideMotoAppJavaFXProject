@@ -84,7 +84,21 @@ public class HomeController implements Initializable{
     public void initialize(URL url, ResourceBundle rb){
         initializeCol();
         displayUsers();
+
+        // Add table row selection listener
+    userstable.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
+    if (newSelection != null && !newSelection.equals(oldSelection)) {
+        // Update text fields with selected user's data
+        usernametextfield.setText(newSelection.getUsername());
+        passwordtextfield.setText(newSelection.getPassword());
+    } else if (newSelection == null) {
+        // Clear text fields if selection is null
+        usernametextfield.clear();
+        passwordtextfield.clear();
     }
+});
+}
+    
 
     private void initializeCol(){
         useridcolumn.setCellValueFactory(new PropertyValueFactory<>("userid"));

@@ -444,24 +444,53 @@ public class DatabaseHandler {
         return riderId;
     }
 
-    public static boolean addRider(Rider rider){
+    public static boolean addRider(Rider rider) {
         getInstance();
         try {
+            // Check for duplicate rider name
+            String checkNameQuery = "SELECT COUNT(*) FROM RiderTable WHERE RiderFullname = ?";
+            pstatement = getDBConnection().prepareStatement(checkNameQuery);
+            pstatement.setString(1, rider.getRiderfullname());
+            ResultSet nameRs = pstatement.executeQuery();
+            if (nameRs.next() && nameRs.getInt(1) > 0) {
+                System.out.println("❌ Rider name already exists: " + rider.getRiderfullname());
+                return false;
+            }
+    
+            // Check for duplicate contact number
+            String checkContactQuery = "SELECT COUNT(*) FROM RiderTable WHERE RiderContactNo = ?";
+            pstatement = getDBConnection().prepareStatement(checkContactQuery);
+            pstatement.setString(1, rider.getRidercontactnumber());
+            ResultSet contactRs = pstatement.executeQuery();
+            if (contactRs.next() && contactRs.getInt(1) > 0) {
+                System.out.println("❌ Contact number already exists: " + rider.getRidercontactnumber());
+                return false;
+            }
+    
+            // Check for duplicate plate number
+            String checkPlateQuery = "SELECT COUNT(*) FROM VehicleTable WHERE PlateNumber = ?";
+            pstatement = getDBConnection().prepareStatement(checkPlateQuery);
+            pstatement.setString(1, rider.getPlatenumber());
+            ResultSet plateRs = pstatement.executeQuery();
+            if (plateRs.next() && plateRs.getInt(1) > 0) {
+                System.out.println("❌ Plate number already exists: " + rider.getPlatenumber());
+                return false;
+            }
+    
             String riderId = generateRiderId();
             if (riderId == null) {
                 return false;
             }
-            
-              // Insert into RiderTable
+    
+            // Insert into RiderTable
             String riderQuery = "INSERT INTO RiderTable (Rider_id, RiderFullname, RiderContactNo) VALUES (?, ?, ?)";
             pstatement = getDBConnection().prepareStatement(riderQuery);
             pstatement.setString(1, riderId);
             pstatement.setString(2, rider.getRiderfullname());
             pstatement.setString(3, rider.getRidercontactnumber());
             pstatement.executeUpdate();
-            pstatement.close();
-
-            /// Insert into RiderLocationTable
+    
+            // Insert into RiderLocationTable
             String locationQuery = "INSERT INTO RiderLocationTable (Rider_id, Zip, City, Street) VALUES (?, ?, ?, ?)";
             pstatement = getDBConnection().prepareStatement(locationQuery);
             pstatement.setString(1, riderId);
@@ -469,33 +498,33 @@ public class DatabaseHandler {
             pstatement.setString(3, rider.getCity());
             pstatement.setString(4, rider.getStreet());
             pstatement.executeUpdate();
-            pstatement.close();
-
+    
             // Insert into VehicleTable
             String vehicleQuery = "INSERT INTO VehicleTable (PlateNumber, Vehicle, Rider_id) VALUES (?, ?, ?)";
             pstatement = getDBConnection().prepareStatement(vehicleQuery);
-            pstatement.setString(1, rider.getPlatenumber()); // Ensure Rider object has plate number
+            pstatement.setString(1, rider.getPlatenumber());
             pstatement.setString(2, rider.getVehicle());
             pstatement.setString(3, riderId);
             pstatement.executeUpdate();
-            pstatement.close();
-            
+    
             // Calculate shipontime based on rating
-             String shipontime = calculateShipOnTime(rider.getRating());
-             // Insert into RiderRatingTable
+            String shipontime = calculateShipOnTime(rider.getRating());
+            
+            // Insert into RiderRatingTable
             String ratingQuery = "INSERT INTO RiderRatingTable (Rider_id, Rating, ShipOnTime) VALUES (?, ?, ?)";
             pstatement = getDBConnection().prepareStatement(ratingQuery);
             pstatement.setString(1, riderId);
-            pstatement.setInt(2, rider.getRating()); // Ensure Rider object has a rating
+            pstatement.setInt(2, rider.getRating());
             pstatement.setString(3, shipontime);
             pstatement.executeUpdate();
-            pstatement.close();
-            
+    
+            System.out.println("✅ Successfully added rider: " + rider.getRiderfullname());
             return true;
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            return false;
+        } catch (Exception e) {
+            System.out.println("❌ Error adding rider: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
     }
     
     public static boolean updateRider(String oldRiderName, Rider rider) {
@@ -503,85 +532,133 @@ public class DatabaseHandler {
         try {
             String riderId = rider.getRiderid();
             if (riderId == null) {
+                System.out.println("❌ Invalid Rider ID");
                 return false;
-            }      
-            // Update RiderTable
-            String riderQuery = "UPDATE RiderTable SET RiderFullname = ?, RiderContactNo = ? WHERE Rider_id = ?";
-            pstatement = getDBConnection().prepareStatement(riderQuery);
-            pstatement.setString(1, rider.getRiderfullname());
-            pstatement.setString(2, rider.getRidercontactnumber());
-            pstatement.setString(3, riderId);
-            pstatement.executeUpdate();
-            pstatement.close();
-
-            // Update RiderLocationTable
-            String locationQuery = "UPDATE RiderLocationTable SET Zip = ?, City = ?, Street = ? WHERE Rider_id = ?";
-            pstatement = getDBConnection().prepareStatement(locationQuery);
-            pstatement.setString(1, rider.getZip());
-            pstatement.setString(2, rider.getCity());
-            pstatement.setString(3, rider.getStreet());
-            pstatement.setString(4, riderId);
-            pstatement.executeUpdate();
-            pstatement.close();
-
-            // Update VehicleTable
-            String vehicleQuery = "UPDATE VehicleTable SET PlateNumber = ?, Vehicle = ? WHERE Rider_id = ?";
-            pstatement = getDBConnection().prepareStatement(vehicleQuery);
-            pstatement.setString(1, rider.getPlatenumber());
-            pstatement.setString(2, rider.getVehicle());
-            pstatement.setString(3, riderId);
-            pstatement.executeUpdate();
-            pstatement.close();
-
-            // Calculate shipontime based on rating
-            String shipontime = calculateShipOnTime(rider.getRating());
-
-            // Update RiderRatingTable
-            String ratingQuery = "UPDATE RiderRatingTable SET Rating = ?, ShipOnTime = ? WHERE Rider_id = ?";
-            pstatement = getDBConnection().prepareStatement(ratingQuery);
-            pstatement.setInt(1, rider.getRating()); // Use setInt for rating
-            pstatement.setString(2, shipontime);
-            pstatement.setString(3, riderId);
-            pstatement.executeUpdate();
-            pstatement.close();
-
-
-            return true;
-            } catch (Exception e) {
-                e.printStackTrace();
             }
-            return false;
+    
+            // Check for duplicate rider name (excluding current rider)
+            String checkNameQuery = "SELECT COUNT(*) FROM RiderTable WHERE RiderFullname = ? AND Rider_id != ?";
+            try (PreparedStatement checkName = getDBConnection().prepareStatement(checkNameQuery)) {
+                checkName.setString(1, rider.getRiderfullname());
+                checkName.setString(2, riderId);
+                ResultSet nameRs = checkName.executeQuery();
+                if (nameRs.next() && nameRs.getInt(1) > 0) {
+                    System.out.println("❌ Rider name already exists: " + rider.getRiderfullname());
+                    return false;
+                }
+            }
+    
+            // Check for duplicate contact number (excluding current rider)
+            String checkContactQuery = "SELECT COUNT(*) FROM RiderTable WHERE RiderContactNo = ? AND Rider_id != ?";
+            try (PreparedStatement checkContact = getDBConnection().prepareStatement(checkContactQuery)) {
+                checkContact.setString(1, rider.getRidercontactnumber());
+                checkContact.setString(2, riderId);
+                ResultSet contactRs = checkContact.executeQuery();
+                if (contactRs.next() && contactRs.getInt(1) > 0) {
+                    System.out.println("❌ Contact number already exists: " + rider.getRidercontactnumber());
+                    return false;
+                }
+            }
+    
+            // Check for duplicate plate number (excluding current rider)
+            String checkPlateQuery = "SELECT COUNT(*) FROM VehicleTable WHERE PlateNumber = ? AND Rider_id != ?";
+            try (PreparedStatement checkPlate = getDBConnection().prepareStatement(checkPlateQuery)) {
+                checkPlate.setString(1, rider.getPlatenumber());
+                checkPlate.setString(2, riderId);
+                ResultSet plateRs = checkPlate.executeQuery();
+                if (plateRs.next() && plateRs.getInt(1) > 0) {
+                    System.out.println("❌ Plate number already exists: " + rider.getPlatenumber());
+                    return false;
+                }
+            }
+    
+            try (Connection conn = getDBConnection()) {
+                // Update RiderTable
+                String riderQuery = "UPDATE RiderTable SET RiderFullname = ?, RiderContactNo = ? WHERE Rider_id = ?";
+                try (PreparedStatement riderStmt = conn.prepareStatement(riderQuery)) {
+                    riderStmt.setString(1, rider.getRiderfullname());
+                    riderStmt.setString(2, rider.getRidercontactnumber());
+                    riderStmt.setString(3, riderId);
+                    riderStmt.executeUpdate();
+                }
+    
+                // Update RiderLocationTable
+                String locationQuery = "UPDATE RiderLocationTable SET Zip = ?, City = ?, Street = ? WHERE Rider_id = ?";
+                try (PreparedStatement locStmt = conn.prepareStatement(locationQuery)) {
+                    locStmt.setString(1, rider.getZip());
+                    locStmt.setString(2, rider.getCity());
+                    locStmt.setString(3, rider.getStreet());
+                    locStmt.setString(4, riderId);
+                    locStmt.executeUpdate();
+                }
+    
+                // Update VehicleTable
+                String vehicleQuery = "UPDATE VehicleTable SET PlateNumber = ?, Vehicle = ? WHERE Rider_id = ?";
+                try (PreparedStatement vehStmt = conn.prepareStatement(vehicleQuery)) {
+                    vehStmt.setString(1, rider.getPlatenumber());
+                    vehStmt.setString(2, rider.getVehicle());
+                    vehStmt.setString(3, riderId);
+                    vehStmt.executeUpdate();
+                }
+    
+                // Calculate and update rating
+                String shipontime = calculateShipOnTime(rider.getRating());
+                String ratingQuery = "UPDATE RiderRatingTable SET Rating = ?, ShipOnTime = ? WHERE Rider_id = ?";
+                try (PreparedStatement rateStmt = conn.prepareStatement(ratingQuery)) {
+                    rateStmt.setInt(1, rider.getRating());
+                    rateStmt.setString(2, shipontime);
+                    rateStmt.setString(3, riderId);
+                    rateStmt.executeUpdate();
+                }
+    
+                System.out.println("✅ Successfully updated rider: " + rider.getRiderfullname());
+                return true;
+            }
+        } catch (Exception e) {
+            System.out.println("❌ Error updating rider: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return false;
     }
 
     public static boolean deleteRider(String riderFullName) {
         getInstance();
         try {
-            // Delete from RiderRatingTable
-            String ratingQuery = "DELETE FROM RiderRatingTable WHERE Rider_id = (SELECT Rider_id FROM RiderTable WHERE RiderFullName = ?)";
-            pstatement = getDBConnection().prepareStatement(ratingQuery);
-            pstatement.setString(1, riderFullName);
-            pstatement.executeUpdate();
+            // First get the Rider_id
+            String getRiderIdQuery = "SELECT Rider_id FROM RiderTable WHERE RiderFullname = ?";
+            String riderId;
+            
+            try (PreparedStatement idStmt = getDBConnection().prepareStatement(getRiderIdQuery)) {
+                idStmt.setString(1, riderFullName);
+                ResultSet rs = idStmt.executeQuery();
+                if (!rs.next()) {
+                    System.out.println("❌ Rider not found: " + riderFullName);
+                    return false;
+                }
+                riderId = rs.getString("Rider_id");
+            }
     
-            // Delete from VehicleTable
-            String vehicleQuery = "DELETE FROM VehicleTable WHERE Rider_id = (SELECT Rider_id FROM RiderTable WHERE RiderFullName = ?)";
-            pstatement = getDBConnection().prepareStatement(vehicleQuery);
-            pstatement.setString(1, riderFullName);
-            pstatement.executeUpdate();
+            // Delete from related tables using direct Rider_id
+            String[] deleteQueries = {
+                "DELETE FROM RiderRatingTable WHERE Rider_id = ?",
+                "DELETE FROM VehicleTable WHERE Rider_id = ?",
+                "DELETE FROM RiderLocationTable WHERE Rider_id = ?",
+                "DELETE FROM RiderTable WHERE Rider_id = ?"
+            };
     
-            // Delete from RiderLocationTable
-            String locationQuery = "DELETE FROM RiderLocationTable WHERE Rider_id = (SELECT Rider_id FROM RiderTable WHERE RiderFullName = ?)";
-            pstatement = getDBConnection().prepareStatement(locationQuery);
-            pstatement.setString(1, riderFullName);
-            pstatement.executeUpdate();
+            try (Connection conn = getDBConnection()) {
+                for (String query : deleteQueries) {
+                    try (PreparedStatement stmt = conn.prepareStatement(query)) {
+                        stmt.setString(1, riderId);
+                        stmt.executeUpdate();
+                    }
+                }
+                System.out.println("✅ Successfully deleted rider: " + riderFullName);
+                return true;
+            }
     
-            // Delete from RiderTable
-            String riderQuery = "DELETE FROM RiderTable WHERE RiderFullName = ?";
-            pstatement = getDBConnection().prepareStatement(riderQuery);
-            pstatement.setString(1, riderFullName);
-            int res = pstatement.executeUpdate();
-    
-            return res > 0;
         } catch (SQLException e) {
+            System.out.println("❌ Error deleting rider: " + e.getMessage());
             e.printStackTrace();
         }
         return false;
@@ -681,14 +758,14 @@ public class DatabaseHandler {
     }
 
             // Generates the next Transaction ID
-        public static String getNextTransactionId(Connection conn) throws SQLException {
-            String query = "SELECT Transaction_id FROM TransactionTable ORDER BY Transaction_id DESC LIMIT 1";
-            try (PreparedStatement stmt = conn.prepareStatement(query);
-                ResultSet rs = stmt.executeQuery()) {
+    public static String getNextTransactionId(Connection conn) throws SQLException {
+        String query = "SELECT Transaction_id FROM TransactionTable ORDER BY Transaction_id DESC LIMIT 1";
+        try (PreparedStatement stmt = conn.prepareStatement(query);
+            ResultSet rs = stmt.executeQuery()) {
 
-                if (rs.next()) {
-                    String lastTransactionId = rs.getString("Transaction_id");
-                    int nextId = Integer.parseInt(lastTransactionId.substring(1)) + 1;
+            if (rs.next()) {
+                String lastTransactionId = rs.getString("Transaction_id");
+                int nextId = Integer.parseInt(lastTransactionId.substring(1)) + 1;
                     return String.format("T%03d", nextId);
                 } else {
                     return "T001"; // Default to T001 if no transactions exist
@@ -697,19 +774,19 @@ public class DatabaseHandler {
         }
 
         // Generates the next Booking ID
-        public static String getNextBookingId(Connection conn) throws SQLException {
-            String query = "SELECT Booking_id FROM TransactionTable ORDER BY Booking_id DESC LIMIT 1";
-            try (PreparedStatement stmt = conn.prepareStatement(query);
-                ResultSet rs = stmt.executeQuery()) {
+    public static String getNextBookingId(Connection conn) throws SQLException {
+        String query = "SELECT Booking_id FROM TransactionTable ORDER BY Booking_id DESC LIMIT 1";
+        try (PreparedStatement stmt = conn.prepareStatement(query);
+            ResultSet rs = stmt.executeQuery()) {
 
-                if (rs.next()) {
-                    String lastBookingId = rs.getString("Booking_id");
-                    int nextId = Integer.parseInt(lastBookingId.substring(1)) + 1;
-                    return String.format("B%03d", nextId);
+            if (rs.next()) {
+                String lastBookingId = rs.getString("Booking_id");
+                int nextId = Integer.parseInt(lastBookingId.substring(1)) + 1;
+                return String.format("B%03d", nextId);
                 } else {
                     return "B001"; // Default to B001 if no bookings exist
                 }
-            }
+        }
 }
 
     public static Rider getRandomRider() {

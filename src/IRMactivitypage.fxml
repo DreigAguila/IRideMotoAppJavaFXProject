@@ -114,10 +114,10 @@
                       <TableColumn fx:id="transactionIdColumn" prefWidth="90.0" text="Transaction_ID" />
                       <TableColumn fx:id="customeridColumn" prefWidth="100.0" text="Customer_ID" />
                         <TableColumn fx:id="rideridColumn" prefWidth="100.0" text="Rider_ID" />
-                        <TableColumn fx:id="transactiondateColumn" prefWidth="100.0" text="TransactionDate" />
-                        <TableColumn fx:id="pickuptimeColumn" prefWidth="100.0" text="Pickup_Time" />
-                        <TableColumn fx:id="arrivaltimeColumn" prefWidth="100.0" text="Arrival_Time" />
-                        <TableColumn fx:id="amountpaidColumn" prefWidth="100.0" text="Amount_Paid" />
+                        <TableColumn fx:id="transactiondateColumn" prefWidth="130.0" text="TransactionDate" />
+                        <TableColumn fx:id="pickuptimeColumn" prefWidth="130.0" text="Pickup_Time" />
+                        <TableColumn fx:id="arrivaltimeColumn" prefWidth="130.0" text="Arrival_Time" />
+                        <TableColumn fx:id="amountpaidColumn" text="Amount_Paid" />
                         <TableColumn fx:id="paymentstatusColumn" prefWidth="100.0" text="Payment Status" />
                     </columns>
                   </TableView>
